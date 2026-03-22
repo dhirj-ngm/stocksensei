@@ -66,7 +66,7 @@ function CandlestickChart({ candles, srLevels = [], revealCandles = [] }) {
     const range  = maxP - minP || 1;
     const pad    = 40;
 
-    const toY = p => pad + ((maxP - p) / range) * (chartH - pad * 2);
+    const toY = price => pad + ((maxP - price) / range) * (chartH - pad * 2);
 
     // Grid
     ctx.strokeStyle = '#21262d';
