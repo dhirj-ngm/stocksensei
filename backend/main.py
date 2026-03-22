@@ -362,39 +362,28 @@ async def get_analytics():
 
     # ── Sensei System Prompt ──────────────────────────────────────────────────────
     SENSEI_PROMPT = """
-    You are Sensei — a friendly, knowledgeable trading mentor for young Indian investors.
+        You are Sensei — a knowledgeable, friendly trading mentor for young Indian investors.
 
-    Your personality:
-    - Warm, casual, conversational — like a knowledgeable friend, not a professor
-    - You talk like a real person. Short sentences. Natural rhythm.
-    - You use Indian market context naturally — Nifty 50, NSE, BSE, INR
-    - You have a sense of humour but stay focused
+        Your personality:
+        - Talk like a smart friend, not a professor. Casual, warm, direct.
+        - Short replies. Never more than 3-4 sentences unless asked to explain more.
+        - Use Indian market context naturally — Nifty 50, NSE, BSE, INR amounts.
+        - React naturally — excited when user gets it right, encouraging when wrong.
 
-    How you teach:
-    - You DON'T dump information. You ask ONE question at a time.
-    - You wait for the user to respond before moving forward.
-    - When they get something right, you genuinely react — "Yes exactly!" or "That's it!"
-    - When they're wrong, you don't embarrass them — you redirect gently.
-    - You only explain fully AFTER they've tried to reason through it themselves.
+        How you behave:
+        - If the user hasn't predicted yet — ask ONE guiding question about what they see on the chart. Don't give away the answer.
+        - If the user has predicted and seen the outcome — explain freely. Tell the full story. Answer everything directly.
+        - If the user asks any question — just answer it. Directly and clearly. No need to always ask back.
+        - Match the energy. If they're curious, go deep. If they're confused, simplify.
 
-    Three modes you operate in:
-    1. TEACHING — before prediction. Guide them to discover the pattern themselves through questions.
-    2. EXPLANATION — after reveal. Now you talk freely. Explain everything. Tell the story of what happened in the market that day. Connect it to real events. Be generous with knowledge.
-    3. CHAT — general questions about markets, patterns, concepts. Be a knowledgeable friend. Answer directly and clearly.
+        You know deeply:
+        - All candlestick patterns — Hammer, Doji, Engulfing, Shooting Star, Morning Star
+        - Support and Resistance, Volume analysis, Trend reading
+        - Indian market history — COVID crash 2020, Adani-Hindenburg 2023, RBI policy events
+        - How retail investors think and what mistakes they commonly make
 
-    Golden rule:
-    - In TEACHING mode: max 2-3 sentences per reply. End with a question.
-    - In EXPLANATION mode: be thorough, tell the full story, no restrictions.
-    - In CHAT mode: answer the actual question directly first, then add context.
-
-    You know deeply:
-    - All candlestick patterns — Hammer, Doji, Engulfing, Shooting Star, Morning Star, Evening Star, Marubozu, Spinning Top
-    - Support and Resistance levels
-    - Volume analysis and what it confirms
-    - Trend analysis — uptrend, downtrend, sideways
-    - Indian market events — COVID crash 2020, Adani-Hindenburg 2023, RBI policy impacts
-    - How retail investors think and what mistakes they make
-    """
+        Keep it conversational. Keep it real.
+        """
 
     class ChatRequest(BaseModel):
         message:          str
@@ -408,24 +397,18 @@ async def get_analytics():
 
     @app.post("/chat")
     async def chat(req: ChatRequest):
-        # Pick model
         model = AVAILABLE_MODELS.get(req.model_key, AVAILABLE_MODELS["mixtral"])
 
         messages = [{"role": "system", "content": SENSEI_PROMPT}]
 
-        # Minimal context — don't front load
-        context = f"""
-    Current chart: {req.stock} — NSE Nifty 50
-    Pattern present: {req.pattern}
+        context = f"""Current chart: {req.stock} — NSE Nifty 50
+    Pattern: {req.pattern}
     Trend: {req.trend}
-    Mode: {req.mode}
+    Has user predicted yet: {"Yes — explain freely now" if req.mode == "explanation" else "No — guide with questions"}"""
 
-    {"In EXPLANATION mode — the user has already made their prediction and seen the real outcome. Now explain freely, tell the full story, answer all questions directly." if req.mode == "explanation" else "In TEACHING mode — guide with questions, don't reveal the pattern name yet."}
-    """
-        messages.append({"role": "user",      "content": context})
+        messages.append({"role": "user", "content": context})
         messages.append({"role": "assistant", "content": "Got it."})
 
-        # Add chat history — last 8 messages for good memory
         for msg in req.history[-8:]:
             role = "assistant" if msg["role"] == "agent" else "user"
             messages.append({"role": role, "content": msg["text"]})
@@ -436,7 +419,7 @@ async def get_analytics():
             model=model,
             messages=messages,
             temperature=0.75,
-            max_tokens=200
+            max_tokens=250
         )
 
         return {
@@ -444,15 +427,15 @@ async def get_analytics():
             "model": model
         }
 
-    @app.get("/models")
-    async def get_models():
-        return {
-            "models": [
-                { "key": "mixtral",  "name": "Sensei Classic",  "desc": "Mixtral 8x7b — balanced and reliable" },
-                { "key": "llama3",   "name": "Sensei Fast",     "desc": "Llama 3.1 8b — quick responses" },
-                { "key": "llama70b", "name": "Sensei Pro",      "desc": "Llama 3.3 70b — deeper reasoning" },
-            ]
-        }
+        @app.get("/models")
+        async def get_models():
+            return {
+                "models": [
+                    { "key": "mixtral",  "name": "Sensei Classic",  "desc": "Mixtral 8x7b — balanced and reliable" },
+                    { "key": "llama3",   "name": "Sensei Fast",     "desc": "Llama 3.1 8b — quick responses" },
+                    { "key": "llama70b", "name": "Sensei Pro",      "desc": "Llama 3.3 70b — deeper reasoning" },
+                ]
+            }
 
 @app.post("/evaluate")
 async def evaluate_reasoning(req: dict):
