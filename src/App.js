@@ -52,28 +52,29 @@ function CandlestickChart({ candles, srLevels = [], revealCandles = [] }) {
     const ctx     = canvas.getContext('2d');
     const W       = canvas.width;
     const H       = canvas.height;
-    const volumeH = 70;
-    const chartH  = H - volumeH - 20;
+    const volH    = 70;
+    const chartH  = H - volH - 20;
+    const padTop  = 40;
+    const padBot  = 40;
 
     ctx.clearRect(0, 0, W, H);
     ctx.fillStyle = '#0d1117';
     ctx.fillRect(0, 0, W, H);
 
     const allCandles = [...candles, ...revealCandles];
-    const prices = allCandles.flatMap(c => [c.high, c.low]);
-    const minP   = Math.min(...prices);
-    const maxP   = Math.max(...prices);
-    const range  = maxP - minP || 1;
-    const pad    = 40;
+    const allPrices  = allCandles.flatMap(c => [c.high, c.low]);
+    const minPrice   = Math.min(...allPrices);
+    const maxPrice   = Math.max(...allPrices);
+    const priceRange = maxPrice - minPrice || 1;
 
-    const toY = price => pad + ((maxP - price) / range) * (chartH - pad * 2);
+    const toY = (val) => padTop + ((maxPrice - val) / priceRange) * (chartH - padTop - padBot);
 
-    // Grid
+    // Grid lines
     ctx.strokeStyle = '#21262d';
     ctx.lineWidth   = 1;
     for (let i = 0; i <= 5; i++) {
-      const y     = pad + (chartH - pad * 2) * (i / 5);
-      const price = maxP - (range * i / 5);
+      const y         = padTop + (chartH - padTop - padBot) * (i / 5);
+      const gridPrice = maxPrice - (priceRange * i / 5);
       ctx.beginPath();
       ctx.moveTo(0, y);
       ctx.lineTo(W - 65, y);
@@ -81,19 +82,19 @@ function CandlestickChart({ candles, srLevels = [], revealCandles = [] }) {
       ctx.fillStyle  = '#8b949e';
       ctx.font       = '10px monospace';
       ctx.textAlign  = 'left';
-      ctx.fillText(price.toFixed(0), W - 60, y + 4);
+      ctx.fillText(gridPrice.toFixed(0), W - 60, y + 4);
     }
 
-    // S&R Lines
+    // Support & Resistance lines
     srLevels.forEach(level => {
-      const y = toY(level.price);
-      if (y < pad || y > chartH - pad) return;
+      const lineY = toY(level.price);
+      if (lineY < padTop || lineY > chartH - padBot) return;
       ctx.strokeStyle = level.type === 'resistance' ? '#f8514933' : '#3fb95033';
       ctx.lineWidth   = 1;
       ctx.setLineDash([4, 4]);
       ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(W - 65, y);
+      ctx.moveTo(0, lineY);
+      ctx.lineTo(W - 65, lineY);
       ctx.stroke();
       ctx.setLineDash([]);
       ctx.fillStyle  = level.type === 'resistance' ? '#f85149' : '#3fb950';
@@ -101,7 +102,7 @@ function CandlestickChart({ candles, srLevels = [], revealCandles = [] }) {
       ctx.textAlign  = 'right';
       ctx.fillText(
         `${level.type === 'resistance' ? 'R' : 'S'} ${level.price}`,
-        W - 67, y - 2
+        W - 67, lineY - 2
       );
     });
 
@@ -110,40 +111,47 @@ function CandlestickChart({ candles, srLevels = [], revealCandles = [] }) {
 
     // Volume bars
     const maxVol = Math.max(...allCandles.map(c => c.volume || 0));
-    allCandles.forEach((c, i) => {
-      const x    = 20 + i * spacing + spacing / 2;
-      const volH = ((c.volume || 0) / maxVol) * (volumeH - 10);
-      ctx.fillStyle = i >= candles.length
-        ? '#58a6ff44'
-        : (c.close >= c.open ? '#3fb95044' : '#f8514944');
-      ctx.fillRect(x - candleW / 2, H - volH - 5, candleW, volH);
+    allCandles.forEach((candle, idx) => {
+      const cx      = 20 + idx * spacing + spacing / 2;
+      const barH    = ((candle.volume || 0) / maxVol) * (volH - 10);
+      const isBull  = candle.close >= candle.open;
+      const isReveal = idx >= candles.length;
+      ctx.fillStyle = isReveal ? '#58a6ff44'
+        : isBull ? '#3fb95044' : '#f8514944';
+      ctx.fillRect(cx - candleW / 2, H - barH - 5, candleW, barH);
     });
-    ctx.fillStyle = '#484f58';
-    ctx.font      = '10px monospace';
-    ctx.textAlign = 'left';
+
+    ctx.fillStyle  = '#484f58';
+    ctx.font       = '10px monospace';
+    ctx.textAlign  = 'left';
     ctx.fillText('VOL', 4, H - 5);
 
     // Candles
-    allCandles.forEach((c, i) => {
-      const x        = 20 + i * spacing + spacing / 2;
-      const openY    = toY(c.open);
-      const closeY   = toY(c.close);
-      const highY    = toY(c.high);
-      const lowY     = toY(c.low);
-      const bull     = c.close >= c.open;
-      const isReveal = i >= candles.length;
-      const color    = isReveal ? '#58a6ff' : bull ? '#3fb950' : '#f85149';
+    allCandles.forEach((candle, idx) => {
+      const cx       = 20 + idx * spacing + spacing / 2;
+      const openY    = toY(candle.open);
+      const closeY   = toY(candle.close);
+      const highY    = toY(candle.high);
+      const lowY     = toY(candle.low);
+      const isBull   = candle.close >= candle.open;
+      const isReveal = idx >= candles.length;
+      const color    = isReveal ? '#58a6ff'
+        : isBull ? '#3fb950' : '#f85149';
 
       ctx.strokeStyle = color;
       ctx.fillStyle   = color;
       ctx.lineWidth   = 1.5;
+
+      // Wick
       ctx.beginPath();
-      ctx.moveTo(x, highY);
-      ctx.lineTo(x, lowY);
+      ctx.moveTo(cx, highY);
+      ctx.lineTo(cx, lowY);
       ctx.stroke();
+
+      // Body
       const bodyTop = Math.min(openY, closeY);
       const bodyH   = Math.max(2, Math.abs(closeY - openY));
-      ctx.fillRect(x - candleW / 2, bodyTop, candleW, bodyH);
+      ctx.fillRect(cx - candleW / 2, bodyTop, candleW, bodyH);
     });
 
     // Prediction divider
@@ -153,14 +161,14 @@ function CandlestickChart({ candles, srLevels = [], revealCandles = [] }) {
       ctx.lineWidth   = 2;
       ctx.setLineDash([6, 3]);
       ctx.beginPath();
-      ctx.moveTo(divX, pad);
-      ctx.lineTo(divX, chartH - pad);
+      ctx.moveTo(divX, padTop);
+      ctx.lineTo(divX, chartH - padBot);
       ctx.stroke();
       ctx.setLineDash([]);
       ctx.fillStyle  = '#f0b429';
       ctx.font       = 'bold 10px monospace';
       ctx.textAlign  = 'center';
-      ctx.fillText('← PREDICTION DATE →', divX + 60, pad - 8);
+      ctx.fillText('← PREDICTION DATE →', divX + 60, padTop - 8);
     }
 
     // Trend line
@@ -178,6 +186,7 @@ function CandlestickChart({ candles, srLevels = [], revealCandles = [] }) {
       ctx.stroke();
       ctx.setLineDash([]);
     }
+
   }, [candles, srLevels, revealCandles]);
 
   return (
