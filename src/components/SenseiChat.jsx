@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import '../styles/chat.css';
 import { PATTERN_THEORY } from '../constants/patterns';
 
@@ -8,7 +8,9 @@ export default function SenseiChat({
   inputText,
   setInputText,
   onSend,
-  agentThinking
+  agentThinking,
+  selectedModel,
+  setSelectedModel
 }) {
   const messagesEndRef = useRef(null);
   const theory = scenario ? PATTERN_THEORY[scenario.pattern] : null;
@@ -53,7 +55,7 @@ export default function SenseiChat({
                 Reliability:
               </strong>
               {' '}
-              <span style={{ fontSize: '0.8rem' }}> 
+              <span style={{ fontSize: '0.8rem' }}>
                 {theory.reliability}
               </span>
             </div>
@@ -66,13 +68,33 @@ export default function SenseiChat({
         </div>
       )}
 
-      {/* Agent header */}
+      {/* Agent header with model selector */}
       <div className="agent-header">
         <div className="agent-avatar">🤖</div>
         <div className="agent-info">
           <h3>Sensei</h3>
-          <span>● AI Trading Coach — Real Market Scenarios</span>
+          <span>● AI Trading Coach</span>
         </div>
+        <select
+          value={selectedModel}
+          onChange={e => setSelectedModel(e.target.value)}
+          style={{
+            marginLeft: 'auto',
+            background: 'var(--bg-tertiary)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-sm)',
+            color: 'var(--text-secondary)',
+            fontSize: '0.75rem',
+            padding: '4px 8px',
+            cursor: 'pointer',
+            outline: 'none',
+            fontFamily: 'var(--font-ui)'
+          }}
+        >
+          <option value="mixtral">Mixtral 8x7b</option>
+          <option value="llama3">Llama 3.1 8b</option>
+          <option value="llama70b">Llama 3.3 70b</option>
+        </select>
       </div>
 
       {/* Messages */}
@@ -112,7 +134,7 @@ export default function SenseiChat({
         <input
           className="chat-input"
           type="text"
-          placeholder="Ask Sensei about this chart..."
+          placeholder="Ask Sensei anything..."
           value={inputText}
           onChange={e => setInputText(e.target.value)}
           onKeyDown={handleKey}

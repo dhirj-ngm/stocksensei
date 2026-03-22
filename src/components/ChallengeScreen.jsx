@@ -25,6 +25,7 @@ export default function ChallengeScreen({
   const [loading,       setLoading]       = useState(true);
   const [agentThinking, setAgentThinking] = useState(false);
   const [bonusResult,   setBonusResult]   = useState(null);
+  const [selectedModel, setSelectedModel] = useState('mixtral');
   const startTimeRef = useRef(Date.now());
 
   useEffect(() => {
@@ -51,7 +52,7 @@ export default function ChallengeScreen({
         setTimeout(() => {
           setMessages([{
             role: 'agent',
-            text: `📅 ${data.date} — ${data.stock}\n\n${data.context}\n\nStudy the chart carefully. What do you notice about the most recent candle on the right?`
+            text: `I'm looking at the ${data.stock} chart. What do you see?`
           }]);
         }, 400);
         setLoading(false);
@@ -76,7 +77,8 @@ export default function ChallengeScreen({
         scenario_context: scenario?.context  || '',
         trend:            trend?.direction   || '',
         history:          messages,
-        mode: revealed ? 'explanation' : 'teaching'
+        mode: revealed ? 'explanation' : 'teaching',
+        model_key: selectedModel
       })
     })
       .then(res => res.json())
@@ -261,6 +263,8 @@ export default function ChallengeScreen({
           setInputText={setInputText}
           onSend={sendMessage}
           agentThinking={agentThinking}
+          selectedModel={selectedModel}
+          setSelectedModel={setSelectedModel}
         />
       </div>
     </div>

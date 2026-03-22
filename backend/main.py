@@ -353,73 +353,106 @@ async def get_analytics():
         "hardest_scenarios": hardest
     }
 
-# ── AI Sensei ─────────────────────────────────────────────────────────────────
-SENSEI_PROMPT = """
-You are Sensei — a proactive AI trading coach teaching young Indian
-investors to read candlestick charts using the Socratic method.
+    # ── Model options ─────────────────────────────────────────────────────────────
+    AVAILABLE_MODELS = {
+        "mixtral":  "mixtral-8x7b-32768",
+        "llama3":   "llama-3.1-8b-instant",
+        "llama70b": "llama-3.3-70b-versatile",
+    }
 
-Your personality:
-- Encouraging, sharp, and direct
-- You ask ONE guiding question at a time
-- Indian market context — Nifty 50, NSE, BSE
-- Never give away the answer — guide the user to it
-- Maximum 3 sentences per response
+    # ── Sensei System Prompt ──────────────────────────────────────────────────────
+    SENSEI_PROMPT = """
+    You are Sensei — a friendly, knowledgeable trading mentor for young Indian investors.
 
-Teaching flow:
-1. What does the user SEE? (body vs wicks)
-2. What is the CONTEXT? (trend, support/resistance)
-3. What does it MEAN? (buyers vs sellers)
-4. Confirm their reasoning after they work through it
+    Your personality:
+    - Warm, casual, conversational — like a knowledgeable friend, not a professor
+    - You talk like a real person. Short sentences. Natural rhythm.
+    - You use Indian market context naturally — Nifty 50, NSE, BSE, INR
+    - You have a sense of humour but stay focused
 
-Patterns you know deeply:
-Hammer, Doji, Bullish/Bearish Engulfing,
-Shooting Star, Morning Star, Evening Star,
-Spinning Top, Marubozu, Three White Soldiers
+    How you teach:
+    - You DON'T dump information. You ask ONE question at a time.
+    - You wait for the user to respond before moving forward.
+    - When they get something right, you genuinely react — "Yes exactly!" or "That's it!"
+    - When they're wrong, you don't embarrass them — you redirect gently.
+    - You only explain fully AFTER they've tried to reason through it themselves.
 
-You also understand Support & Resistance,
-Volume confirmation, and Trend analysis.
+    Three modes you operate in:
+    1. TEACHING — before prediction. Guide them to discover the pattern themselves through questions.
+    2. EXPLANATION — after reveal. Now you talk freely. Explain everything. Tell the story of what happened in the market that day. Connect it to real events. Be generous with knowledge.
+    3. CHAT — general questions about markets, patterns, concepts. Be a knowledgeable friend. Answer directly and clearly.
 
-In doubt mode — answer focused and brief.
-After 3-4 exchanges suggest making a prediction.
-"""
+    Golden rule:
+    - In TEACHING mode: max 2-3 sentences per reply. End with a question.
+    - In EXPLANATION mode: be thorough, tell the full story, no restrictions.
+    - In CHAT mode: answer the actual question directly first, then add context.
 
-class ChatRequest(BaseModel):
-    message:          str
-    pattern:          str
-    stock:            str
-    scenario_context: str = ""
-    trend:            str = ""
-    history:          list
-    mode:             str = "teaching"
+    You know deeply:
+    - All candlestick patterns — Hammer, Doji, Engulfing, Shooting Star, Morning Star, Evening Star, Marubozu, Spinning Top
+    - Support and Resistance levels
+    - Volume analysis and what it confirms
+    - Trend analysis — uptrend, downtrend, sideways
+    - Indian market events — COVID crash 2020, Adani-Hindenburg 2023, RBI policy impacts
+    - How retail investors think and what mistakes they make
+    """
 
-@app.post("/chat")
-async def chat(req: ChatRequest):
-    messages = [{"role": "system", "content": SENSEI_PROMPT}]
+    class ChatRequest(BaseModel):
+        message:          str
+        pattern:          str
+        stock:            str
+        scenario_context: str = ""
+        trend:            str = ""
+        history:          list
+        mode:             str = "teaching"
+        model_key:        str = "mixtral"
 
-    context = f"""
-Scenario: {req.stock} — NSE Nifty 50
-Pattern: {req.pattern}
-Market context: {req.scenario_context}
-Trend: {req.trend}
-Mode: {req.mode}
-"""
-    messages.append({"role": "user",      "content": context})
-    messages.append({"role": "assistant", "content": "Understood. Ready to guide."})
+    @app.post("/chat")
+    async def chat(req: ChatRequest):
+        # Pick model
+        model = AVAILABLE_MODELS.get(req.model_key, AVAILABLE_MODELS["mixtral"])
 
-    for msg in req.history[-6:]:
-        role = "assistant" if msg["role"] == "agent" else "user"
-        messages.append({"role": role, "content": msg["text"]})
+        messages = [{"role": "system", "content": SENSEI_PROMPT}]
 
-    messages.append({"role": "user", "content": req.message})
+        # Minimal context — don't front load
+        context = f"""
+    Current chart: {req.stock} — NSE Nifty 50
+    Pattern present: {req.pattern}
+    Trend: {req.trend}
+    Mode: {req.mode}
 
-    response = groq_client.chat.completions.create(
-        model="mixtral-8x7b-32768",
-        messages=messages,
-        temperature=0.7,
-        max_tokens=150
-    )
+    {"In EXPLANATION mode — the user has already made their prediction and seen the real outcome. Now explain freely, tell the full story, answer all questions directly." if req.mode == "explanation" else "In TEACHING mode — guide with questions, don't reveal the pattern name yet."}
+    """
+        messages.append({"role": "user",      "content": context})
+        messages.append({"role": "assistant", "content": "Got it."})
 
-    return {"reply": response.choices[0].message.content}
+        # Add chat history — last 8 messages for good memory
+        for msg in req.history[-8:]:
+            role = "assistant" if msg["role"] == "agent" else "user"
+            messages.append({"role": role, "content": msg["text"]})
+
+        messages.append({"role": "user", "content": req.message})
+
+        response = groq_client.chat.completions.create(
+            model=model,
+            messages=messages,
+            temperature=0.75,
+            max_tokens=200
+        )
+
+        return {
+            "reply": response.choices[0].message.content,
+            "model": model
+        }
+
+    @app.get("/models")
+    async def get_models():
+        return {
+            "models": [
+                { "key": "mixtral",  "name": "Sensei Classic",  "desc": "Mixtral 8x7b — balanced and reliable" },
+                { "key": "llama3",   "name": "Sensei Fast",     "desc": "Llama 3.1 8b — quick responses" },
+                { "key": "llama70b", "name": "Sensei Pro",      "desc": "Llama 3.3 70b — deeper reasoning" },
+            ]
+        }
 
 @app.post("/evaluate")
 async def evaluate_reasoning(req: dict):
