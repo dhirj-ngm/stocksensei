@@ -870,5 +870,4 @@ export default function App() {
       onUpdateStats={handleUpdateStats}
     />
   );
-}/ /   b u i l d   t r i g g e r  
- 
+}
