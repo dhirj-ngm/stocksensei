@@ -203,7 +203,7 @@ function HomeScreen({ onSelect }) {
     fetchScenarios('all');
     const saved = localStorage.getItem('stocksensei_stats');
     if (saved) setSessionStats(JSON.parse(saved));
-  }, []);
+  }, [fetchScenarios]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchScenarios = async (category) => {
     setLoading(true);
@@ -817,7 +817,7 @@ function ChallengeScreen({ scenarioId, onBack, onUpdateStats }) {
 export default function App() {
   const [screen,       setScreen]       = useState('home');
   const [selectedId,   setSelectedId]   = useState(null);
-  const [sessionStats, setSessionStats] = useState({ attempted: 0, correct: 0 });
+  const [, setSessionStats] = useState({ attempted: 0, correct: 0 });
 
   // Generate session ID once
   useEffect(() => {
