@@ -1,70 +1,94 @@
-# Getting Started with Create React App
+# 📈 StockSensei
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+> **LeetCode for Stock Market Learning** — Gamified candlestick pattern recognition using real Nifty 50 historical data and an AI Socratic coach.
 
-## Available Scripts
+🌐 **Live App:** [stocksensei-gamma.vercel.app](https://stocksensei-gamma.vercel.app)
 
-In the project directory, you can run:
+---
 
-### `npm start`
+## What is StockSensei?
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+StockSensei teaches young Indian investors to read stock charts through real historical market scenarios. Instead of passive reading, users study real candlestick charts, predict what happened next, and learn from actual market outcomes — guided by an AI mentor called Sensei.
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+---
 
-### `npm test`
+## Features
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+- **30 Real Scenarios** — Historical Nifty 50 events (COVID crash, Adani-Hindenburg, earnings surprises) across 5 categories
+- **AI Sensei** — Socratic teaching coach powered by Llama 3.3 70b via Groq. Guides before prediction, explains fully after reveal
+- **3 Model Options** — Mixtral 8x7b, Llama 3.1 8b, Llama 3.3 70b
+- **Real Market Data** — yFinance fetches actual OHLCV data from NSE
+- **Custom Chart Engine** — Built on HTML5 Canvas with hover tooltips, Support/Resistance overlays, trend lines, volume bars
+- **Animated Reveal** — Click RUN to see real next candles animate in one by one
+- **Gamified Points** — +500 correct, -300 wrong, +300 bonus for quality reasoning
+- **Hint System** — 3 progressive hints, first free
+- **Session Analytics** — All interactions saved to Supabase for Phase 2 fine-tuning
 
-### `npm run build`
+---
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## Tech Stack
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+| Layer | Technology |
+|-------|-----------|
+| Frontend | React.js, HTML5 Canvas |
+| Backend | FastAPI (Python) |
+| AI | Llama 3.3 70b / Mixtral 8x7b via Groq |
+| Market Data | yFinance — NSE Nifty 50 |
+| Database | Supabase (PostgreSQL) |
+| Cache | SQLite |
+| Deploy | Vercel + Render |
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+---
 
-### `npm run eject`
+## Running Locally
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+**Frontend:**
+```bash
+cd stocksensei
+npm install
+npm start
+```
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+**Backend:**
+```bash
+cd backend
+python -m venv venv
+.\venv\Scripts\activate  # Windows
+pip install -r requirements.txt
+uvicorn main:app --reload
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+**Environment variables** — create `backend/.env`:
+```
+GROQ_API_KEY=your_groq_key
+SUPABASE_URL=your_supabase_url
+SUPABASE_KEY=your_supabase_anon_key
+```
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+---
 
-## Learn More
+## Live URLs
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+| Service | URL |
+|---------|-----|
+| Frontend | https://stocksensei-gamma.vercel.app |
+| Backend API | https://stocksensei-backend-sqy6.onrender.com |
+| Health Check | https://stocksensei-backend-sqy6.onrender.com/health |
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+> **Note:** Backend runs on Render free tier. Open the health check URL 2 minutes before demoing to wake it up.
 
-### Code Splitting
+---
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+## Phase 2 Roadmap
 
-### Analyzing the Bundle Size
+- Fine-tune Llama 3.1 8b on collected user sessions using NVIDIA NeMo on Nebius AI
+- Flutter mobile app
+- Live market mode — predict next week on real current data
+- Support & Resistance dedicated challenges
+- Community leaderboard
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+---
 
-### Making a Progressive Web App
+## Built With
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+AIML Mini Project 2025–26
