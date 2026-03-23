@@ -26,6 +26,7 @@ export default function ChallengeScreen({
   const [agentThinking, setAgentThinking] = useState(false);
   const [bonusResult,   setBonusResult]   = useState(null);
   const [selectedModel, setSelectedModel] = useState('mixtral');
+  const revealedRef = useRef(false);
   const startTimeRef = useRef(Date.now());
 
   useEffect(() => {
@@ -76,14 +77,19 @@ export default function ChallengeScreen({
         stock:            scenario?.stock    || '',
         scenario_context: scenario?.context  || '',
         trend:            trend?.direction   || '',
-        history:          messages,
-        mode: revealed ? 'explanation' : 'teaching',
+        history: messages.filter(m => m.role === 'user' || m.role === 'agent').slice(-6),
+        mode: revealedRef.current ? 'explanation' : 'teaching',
         model_key: selectedModel
       })
     })
-      .then(res => res.json())
+      .then(res => {
+        console.log('Status:', res.status);
+        return res.json();
+      })
       .then(data => {
-        setMessages(prev => [...prev, { role: 'agent', text: data.reply }]);
+        console.log('Data:', data);
+        const reply = data.reply || data.detail || "Try again!";
+        setMessages(prev => [...prev, { role: 'agent', text: reply }]);
         setAgentThinking(false);
       })
       .catch(() => {
@@ -137,6 +143,7 @@ export default function ChallengeScreen({
   function handleReveal() {
   if (revealed) return;
   setRevealed(true);
+  revealedRef.current = true;
 
   fetch(`${API}/scenario/${scenarioId}/reveal`)
     .then(res => res.json())
@@ -164,6 +171,7 @@ export default function ChallengeScreen({
           role: 'agent',
           text: `Now that you've seen the real outcome — ask me anything! Why did this pattern work? What confirmed it? What should you watch for next time? I'll explain everything fully now. 🎓`
         }]);
+        setAgentThinking(false);
       }, nextCandles.length * 180 + 1200);
     })
     .catch(() => {

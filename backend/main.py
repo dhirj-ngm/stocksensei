@@ -4,7 +4,7 @@ StockSensei - FastAPI Backend v3
 - Supabase database integration
 - 30 real historical scenarios
 - SQLite candle cache layer
-- AI Sensei with Mixtral upgrade
+- AI Sensei with multiple model support
 - User session analytics
 """
 
@@ -113,7 +113,7 @@ def set_cache(scenario_id, candle_data=None,
     conn.close()
 
 init_db()
-print("✅ SQLite cache initialized")
+print("SQLite cache initialized")
 
 # ── Market Data Helpers ───────────────────────────────────────────────────────
 def calculate_support_resistance(df, window=10):
@@ -144,10 +144,10 @@ def calculate_trend(df):
     else:
         trend = "sideways"
     return {
-        "direction":     trend,
+        "direction":      trend,
         "change_percent": round(change, 2),
-        "start_price":   round(float(first), 2),
-        "end_price":     round(float(last), 2)
+        "start_price":    round(float(first), 2),
+        "end_price":      round(float(last), 2)
     }
 
 def format_candles(df):
@@ -163,26 +163,57 @@ def format_candles(df):
         })
     return candles
 
+# ── Model options ─────────────────────────────────────────────────────────────
+AVAILABLE_MODELS = {
+    "mixtral":  "mixtral-8x7b-32768",
+    "llama3":   "llama-3.1-8b-instant",
+    "llama70b": "llama-3.3-70b-versatile",
+}
+
+# ── Sensei System Prompt ──────────────────────────────────────────────────────
+SENSEI_PROMPT = """
+You are Sensei - a knowledgeable, friendly trading mentor for young Indian investors.
+
+Your personality:
+- Talk like a smart friend, not a professor. Casual, warm, direct.
+- Short replies. Never more than 3-4 sentences unless asked to explain more.
+- Use Indian market context naturally - Nifty 50, NSE, BSE, INR amounts.
+- React naturally - excited when user gets it right, encouraging when wrong.
+
+How you behave:
+- If the user hasn't predicted yet - ask ONE guiding question about what they see on the chart. Don't give away the answer.
+- If the user has predicted and seen the outcome - explain freely. Tell the full story. Answer everything directly.
+- If the user asks any question - just answer it. Directly and clearly. No need to always ask back.
+- Match the energy. If they're curious, go deep. If they're confused, simplify.
+
+You know deeply:
+- All candlestick patterns - Hammer, Doji, Engulfing, Shooting Star, Morning Star
+- Support and Resistance, Volume analysis, Trend reading
+- Indian market history - COVID crash 2020, Adani-Hindenburg 2023, RBI policy events
+- How retail investors think and what mistakes they commonly make
+
+Keep it conversational. Keep it real.
+
+CRITICAL RULE: If context says "Has user predicted yet: Yes - explain freely now" then you MUST answer all questions directly and completely. Never ask guiding questions in this mode. Just explain.
+"""
+
 # ── ENDPOINTS ─────────────────────────────────────────────────────────────────
 
 @app.get("/health")
 async def health():
-    return {"status": "StockSensei backend v3 running — Supabase connected"}
+    return {"status": "StockSensei backend v3 running - Supabase connected"}
+
 
 @app.get("/scenarios")
 async def get_all_scenarios():
-    """
-    Returns all scenarios from Supabase.
-    Used for the home/problem list screen.
-    """
     response = supabase.table("scenarios").select(
         "id, stock, date, pattern, difficulty, category, institution_reference"
     ).order("id").execute()
     return {"scenarios": response.data}
 
+
 @app.get("/scenarios/category/{category}")
 async def get_scenarios_by_category(category: str):
-    """Filter scenarios by category."""
     if category == "all":
         response = supabase.table("scenarios").select("*").order("id").execute()
     else:
@@ -191,13 +222,9 @@ async def get_scenarios_by_category(category: str):
         ).order("id").execute()
     return {"scenarios": response.data}
 
+
 @app.get("/scenario/{scenario_id}")
 async def get_scenario(scenario_id: int):
-    """
-    Returns full scenario with real candle data.
-    Checks SQLite cache first — fetches from yFinance if not cached.
-    """
-    # Get scenario metadata from Supabase
     response = supabase.table("scenarios").select("*").eq(
         "id", scenario_id
     ).execute()
@@ -207,10 +234,9 @@ async def get_scenario(scenario_id: int):
 
     scenario = response.data[0]
 
-    # Check candle cache
     cached = get_cache(scenario_id)
     if cached and cached["candle_data"]:
-        print(f"✅ Serving scenario {scenario_id} from cache")
+        print(f"Serving scenario {scenario_id} from cache")
         return {
             **scenario,
             "candles":            cached["candle_data"],
@@ -218,8 +244,7 @@ async def get_scenario(scenario_id: int):
             "trend":              cached["trend_data"]
         }
 
-    # Fetch from yFinance
-    print(f"📡 Fetching scenario {scenario_id} from yFinance...")
+    print(f"Fetching scenario {scenario_id} from yFinance...")
     end_date   = datetime.strptime(str(scenario["date"]), "%Y-%m-%d")
     start_date = end_date - timedelta(days=90)
 
@@ -237,12 +262,10 @@ async def get_scenario(scenario_id: int):
     sr_levels = calculate_support_resistance(df)
     trend     = calculate_trend(df)
 
-    # Cache it
     set_cache(scenario_id,
               candle_data=candles,
               sr_levels=sr_levels,
               trend_data=trend)
-    print(f"📦 Cached scenario {scenario_id}")
 
     return {
         **scenario,
@@ -251,12 +274,12 @@ async def get_scenario(scenario_id: int):
         "trend":              trend
     }
 
+
 @app.get("/scenario/{scenario_id}/reveal")
 async def reveal_outcome(scenario_id: int):
-    """Returns next 10 candles showing what actually happened."""
     cached = get_cache(scenario_id)
     if cached and cached["reveal_data"]:
-        print(f"✅ Serving reveal {scenario_id} from cache")
+        print(f"Serving reveal {scenario_id} from cache")
         response = supabase.table("scenarios").select(
             "what_happened, correct_answer"
         ).eq("id", scenario_id).execute()
@@ -267,7 +290,6 @@ async def reveal_outcome(scenario_id: int):
             "correct_answer": scenario["correct_answer"]
         }
 
-    # Get scenario from Supabase
     response = supabase.table("scenarios").select("*").eq(
         "id", scenario_id
     ).execute()
@@ -291,7 +313,6 @@ async def reveal_outcome(scenario_id: int):
     candles = format_candles(df)
 
     set_cache(scenario_id, reveal_data=candles)
-    print(f"📦 Cached reveal {scenario_id}")
 
     return {
         "next_candles":   candles,
@@ -299,41 +320,37 @@ async def reveal_outcome(scenario_id: int):
         "correct_answer": scenario["correct_answer"]
     }
 
+
 @app.post("/session/save")
 async def save_session(data: dict):
-    """Save user session analytics to Supabase."""
     try:
         supabase.table("user_sessions").insert({
-            "session_id":          data.get("session_id", str(uuid.uuid4())),
-            "scenario_id":         data.get("scenario_id"),
-            "prediction":          data.get("prediction"),
-            "was_correct":         data.get("was_correct"),
-            "reasoning":           data.get("reasoning", ""),
-            "bonus_points":        data.get("bonus_points", 0),
-            "points_earned":       data.get("points_earned", 0),
-            "time_taken_seconds":  data.get("time_taken_seconds", 0)
+            "session_id":         data.get("session_id", str(uuid.uuid4())),
+            "scenario_id":        data.get("scenario_id"),
+            "prediction":         data.get("prediction"),
+            "was_correct":        data.get("was_correct"),
+            "reasoning":          data.get("reasoning", ""),
+            "bonus_points":       data.get("bonus_points", 0),
+            "points_earned":      data.get("points_earned", 0),
+            "time_taken_seconds": data.get("time_taken_seconds", 0)
         }).execute()
         return {"status": "saved"}
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
+
 @app.get("/analytics")
 async def get_analytics():
-    """
-    Returns aggregated analytics across all user sessions.
-    Shows which scenarios are hardest, accuracy rates etc.
-    """
     response = supabase.table("user_sessions").select("*").execute()
     sessions = response.data
 
     if not sessions:
         return {"message": "No sessions yet"}
 
-    total      = len(sessions)
-    correct    = sum(1 for s in sessions if s["was_correct"])
-    accuracy   = round((correct / total) * 100, 1) if total > 0 else 0
+    total    = len(sessions)
+    correct  = sum(1 for s in sessions if s["was_correct"])
+    accuracy = round((correct / total) * 100, 1) if total > 0 else 0
 
-    # Per scenario accuracy
     scenario_stats = {}
     for s in sessions:
         sid = s["scenario_id"]
@@ -348,94 +365,63 @@ async def get_analytics():
     )[:3]
 
     return {
-        "total_attempts": total,
-        "overall_accuracy": accuracy,
+        "total_attempts":    total,
+        "overall_accuracy":  accuracy,
         "hardest_scenarios": hardest
     }
 
-    # ── Model options ─────────────────────────────────────────────────────────────
-    AVAILABLE_MODELS = {
-        "mixtral":  "mixtral-8x7b-32768",
-        "llama3":   "llama-3.1-8b-instant",
-        "llama70b": "llama-3.3-70b-versatile",
+
+class ChatRequest(BaseModel):
+    message:          str
+    pattern:          str
+    stock:            str
+    scenario_context: str = ""
+    trend:            str = ""
+    history:          list
+    mode:             str = "teaching"
+    model_key:        str = "mixtral"
+
+
+@app.post("/chat")
+async def chat(req: ChatRequest):
+    model = AVAILABLE_MODELS.get(req.model_key, AVAILABLE_MODELS["mixtral"])
+
+    messages = [{"role": "system", "content": SENSEI_PROMPT}]
+
+    context = f"Current chart: {req.stock} - NSE Nifty 50\nPattern: {req.pattern}\nTrend: {req.trend}\nHas user predicted yet: {'Yes - explain freely now' if req.mode == 'explanation' else 'No - guide with questions'}"
+
+    messages.append({"role": "user",      "content": context})
+    messages.append({"role": "assistant", "content": "Got it."})
+
+    for msg in req.history[-8:]:
+        role = "assistant" if msg["role"] == "agent" else "user"
+        messages.append({"role": role, "content": msg["text"]})
+
+    messages.append({"role": "user", "content": req.message})
+
+    response = groq_client.chat.completions.create(
+        model=model,
+        messages=messages,
+        temperature=0.75,
+        max_tokens=250
+    )
+
+    return {
+        "reply": response.choices[0].message.content,
+        "model": model
     }
 
-    # ── Sensei System Prompt ──────────────────────────────────────────────────────
-    SENSEI_PROMPT = """
-        You are Sensei — a knowledgeable, friendly trading mentor for young Indian investors.
 
-        Your personality:
-        - Talk like a smart friend, not a professor. Casual, warm, direct.
-        - Short replies. Never more than 3-4 sentences unless asked to explain more.
-        - Use Indian market context naturally — Nifty 50, NSE, BSE, INR amounts.
-        - React naturally — excited when user gets it right, encouraging when wrong.
+@app.get("/models")
+async def get_models():
+    return {
+        "models": [
+            {"key": "mixtral",  "name": "Mixtral 8x7b",  "desc": "Balanced and reliable"},
+            {"key": "llama3",   "name": "Llama 3.1 8b",  "desc": "Fast responses"},
+            {"key": "llama70b", "name": "Llama 3.3 70b", "desc": "Deeper reasoning"},
+        ]
+    }
 
-        How you behave:
-        - If the user hasn't predicted yet — ask ONE guiding question about what they see on the chart. Don't give away the answer.
-        - If the user has predicted and seen the outcome — explain freely. Tell the full story. Answer everything directly.
-        - If the user asks any question — just answer it. Directly and clearly. No need to always ask back.
-        - Match the energy. If they're curious, go deep. If they're confused, simplify.
-
-        You know deeply:
-        - All candlestick patterns — Hammer, Doji, Engulfing, Shooting Star, Morning Star
-        - Support and Resistance, Volume analysis, Trend reading
-        - Indian market history — COVID crash 2020, Adani-Hindenburg 2023, RBI policy events
-        - How retail investors think and what mistakes they commonly make
-
-        Keep it conversational. Keep it real.
-        """
-
-    class ChatRequest(BaseModel):
-        message:          str
-        pattern:          str
-        stock:            str
-        scenario_context: str = ""
-        trend:            str = ""
-        history:          list
-        mode:             str = "teaching"
-        model_key:        str = "mixtral"
-
-    @app.post("/chat")
-    async def chat(req: ChatRequest):
-        model = AVAILABLE_MODELS.get(req.model_key, AVAILABLE_MODELS["mixtral"])
-
-        messages = [{"role": "system", "content": SENSEI_PROMPT}]
-
-        context = f"""Current chart: {req.stock} — NSE Nifty 50
-    Pattern: {req.pattern}
-    Trend: {req.trend}
-    Has user predicted yet: {"Yes — explain freely now" if req.mode == "explanation" else "No — guide with questions"}"""
-
-        messages.append({"role": "user", "content": context})
-        messages.append({"role": "assistant", "content": "Got it."})
-
-        for msg in req.history[-8:]:
-            role = "assistant" if msg["role"] == "agent" else "user"
-            messages.append({"role": role, "content": msg["text"]})
-
-        messages.append({"role": "user", "content": req.message})
-
-        response = groq_client.chat.completions.create(
-            model=model,
-            messages=messages,
-            temperature=0.75,
-            max_tokens=250
-        )
-
-        return {
-            "reply": response.choices[0].message.content,
-            "model": model
-        }
-
-        @app.get("/models")
-        async def get_models():
-            return {
-                "models": [
-                    { "key": "mixtral",  "name": "Sensei Classic",  "desc": "Mixtral 8x7b — balanced and reliable" },
-                    { "key": "llama3",   "name": "Sensei Fast",     "desc": "Llama 3.1 8b — quick responses" },
-                    { "key": "llama70b", "name": "Sensei Pro",      "desc": "Llama 3.3 70b — deeper reasoning" },
-                ]
-            }
 
 @app.post("/evaluate")
 async def evaluate_reasoning(req: dict):
