@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import HomeScreen from './components/HomeScreen';
 import ChallengeScreen from './components/ChallengeScreen';
+import LearnScreen from './components/LearnScreen';
 
 export default function App() {
   const [screen,       setScreen]       = useState('home');
@@ -53,6 +54,16 @@ export default function App() {
       <HomeScreen
         onSelect={handleSelect}
         sessionStats={sessionStats}
+        onLearn={() => setScreen('learn')}
+      />
+    );
+  }
+
+  if (screen === 'learn') {
+    return (
+      <LearnScreen
+        onBack={() => setScreen('home')}
+        points={points}
       />
     );
   }

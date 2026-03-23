@@ -5,7 +5,7 @@ import { CATEGORIES } from '../constants/patterns';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
-export default function HomeScreen({ onSelect, sessionStats }) {
+export default function HomeScreen({ onSelect, sessionStats, onLearn }) {
   const [scenarios, setScenarios] = useState([]);
   const [filter,    setFilter]    = useState('all');
   const [loading,   setLoading]   = useState(true);
@@ -47,6 +47,24 @@ export default function HomeScreen({ onSelect, sessionStats }) {
             Real historical events from Indian markets.
             Study the chart, predict what happened next.
           </p>
+          <button
+            onClick={onLearn}
+            style={{
+                marginTop: '12px',
+                background: 'rgba(240,180,41,0.08)',
+                border: '1px solid rgba(240,180,41,0.3)',
+                borderRadius: 'var(--radius-md)',
+                padding: '8px 20px',
+                color: 'var(--gold)',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                fontFamily: 'var(--font-ui)',
+                transition: 'var(--transition)'
+            }}
+            >
+            📚 Study Concepts →
+        </button>
         </div>
 
         {/* Stats */}
